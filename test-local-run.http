@@ -13,3 +13,31 @@ Content-Type: application/json
 ### Stop running test to save time and resources
 # @timeout 120
 POST http://localhost:1234/test/stop/{{serviceName}}
+
+### Run the same test from Windows PowerShell
+$serviceName = Read-Host -Prompt 'Payment service name'
+$token = [System.Net.NetworkCredential]::new(
+  '',
+  (Read-Host -Prompt 'Payment token' -AsSecureString)
+).Password
+
+$body = @{
+  serviceName = $serviceName
+  token = $token
+  ratePerSecond = 11
+  testCount = 1200
+  processingTimeMillis = 80000
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri 'http://localhost:1234/test/run' `
+  -ContentType 'application/json' `
+  -Body $body
+
+### Stop a local test from Windows PowerShell
+$serviceName = Read-Host -Prompt 'Payment service name'
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://localhost:1234/test/stop/$serviceName"

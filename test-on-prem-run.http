@@ -17,3 +17,36 @@ Content-Type: application/json
 ### Stop running test to save credits
 # @timeout 120
 POST http://77.234.215.138:31234/test/stop/{{serviceName}}
+
+### Run the test remotely from Windows PowerShell
+$serviceName = Read-Host -Prompt 'Payment service name'
+$token = [System.Net.NetworkCredential]::new(
+  '',
+  (Read-Host -Prompt 'Payment token' -AsSecureString)
+).Password
+$branch = Read-Host -Prompt 'Git branch'
+$accounts = Read-Host -Prompt 'Payment accounts, for example acc-3'
+
+$body = @{
+  serviceName = $serviceName
+  token = $token
+  branch = $branch
+  accounts = $accounts
+  ratePerSecond = 11
+  testCount = 1200
+  processingTimeMillis = 80000
+  onPremises = $true
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri 'http://77.234.215.138:34321/run' `
+  -ContentType 'application/json' `
+  -Body $body
+
+### Stop a remote test from Windows PowerShell
+$serviceName = Read-Host -Prompt 'Payment service name'
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://77.234.215.138:31234/test/stop/$serviceName"
