@@ -1,5 +1,6 @@
 package ru.quipy.apigateway
 
+import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -13,13 +14,15 @@ import java.util.*
 import java.util.concurrent.RejectedExecutionException
 
 @RestController
-class APIController {
+class APIController(meterRegistry: MeterRegistry) {
 
     companion object {
         private const val RETRY_AFTER_MILLIS = 1_000L
     }
 
     val logger: Logger = LoggerFactory.getLogger(APIController::class.java)
+
+    private val rejectedPayments = meterRegistry.counter("payments.admission.rejected")
 
     @Autowired
     private lateinit var orderRepository: OrderRepository
@@ -74,7 +77,8 @@ class APIController {
             val createdAt = orderPayer.processPayment(orderId, order.price, paymentId, deadline)
             ResponseEntity.ok(PaymentSubmissionDto(createdAt, paymentId))
         } catch (e: RejectedExecutionException) {
-            logger.warn("Payment queue is full")
+            rejectedPayments.increment()
+            logger.warn("Payment queue is full; returning HTTP 429")
             ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header(HttpHeaders.RETRY_AFTER, (System.currentTimeMillis() + RETRY_AFTER_MILLIS).toString())
                 .build()
