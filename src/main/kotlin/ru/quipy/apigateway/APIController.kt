@@ -8,13 +8,16 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import ru.quipy.common.utils.RequestMetrics
 import ru.quipy.orders.repository.OrderRepository
 import ru.quipy.payments.logic.OrderPayer
 import java.util.*
 import java.util.concurrent.RejectedExecutionException
 
 @RestController
-class APIController(meterRegistry: MeterRegistry) {
+class APIController(
+        private val meterRegistry: MeterRegistry,
+        private val requestMetrics: RequestMetrics) {
 
     companion object {
         private const val RETRY_AFTER_MILLIS = 1_000L
@@ -23,7 +26,6 @@ class APIController(meterRegistry: MeterRegistry) {
     val logger: Logger = LoggerFactory.getLogger(APIController::class.java)
 
     private val rejectedPayments = meterRegistry.counter("payments.admission.rejected")
-
     @Autowired
     private lateinit var orderRepository: OrderRepository
 
@@ -67,6 +69,7 @@ class APIController(meterRegistry: MeterRegistry) {
 
     @PostMapping("/orders/{orderId}/payment")
     fun payOrder(@PathVariable orderId: UUID, @RequestParam deadline: Long): ResponseEntity<PaymentSubmissionDto> {
+        requestMetrics.incoming.increment()
         val paymentId = UUID.randomUUID()
         val order = orderRepository.findById(orderId)?.let {
             orderRepository.save(it.copy(status = OrderStatus.PAYMENT_IN_PROGRESS))

@@ -7,6 +7,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
 import org.slf4j.LoggerFactory
+import ru.quipy.common.utils.RequestMetrics
 import ru.quipy.common.utils.SlidingWindowRateLimiter
 import ru.quipy.core.EventSourcingService
 import ru.quipy.payments.api.PaymentAggregate
@@ -40,6 +41,7 @@ class PaymentExternalSystemAdapterImpl(
         require(it > 0) { "Parallel requests must be positive" }
     }, true)
     private val accountMetrics = PaymentAccountMetrics(properties, meterRegistry)
+    private val requestMetrics = RequestMetrics(meterRegistry)
     private val requestRateLimiter = SlidingWindowRateLimiter(rateLimitPerSec.toLong(), Duration.ofSeconds(1))
     private val client = OkHttpClient.Builder().build()
 
@@ -63,12 +65,15 @@ class PaymentExternalSystemAdapterImpl(
                 requestRateLimiter.tickBlocking()
                 logger.debug("[{}] Sending payment: payment={}, txId={}", accountName, paymentId, transactionId)
                 accountMetrics.observeRequest {
+                    requestMetrics.paymentOutgoing.increment()
                     client.newCall(request).execute().use { response ->
                         try {
                             mapper.readValue(response.body?.string(), ExternalSysResponse::class.java)
                         } catch (e: Exception) {
                             logger.error("[{}] Invalid payment response: payment={}, txId={}, status={}", accountName, paymentId, transactionId, response.code, e)
                             throw e
+                        } finally {
+                            requestMetrics.served.increment()
                         }
                     }
                 }
