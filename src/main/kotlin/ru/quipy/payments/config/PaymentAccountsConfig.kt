@@ -10,7 +10,6 @@ import org.springframework.context.annotation.Configuration
 import ru.quipy.core.EventSourcingService
 import ru.quipy.payments.api.PaymentAggregate
 import ru.quipy.payments.logic.*
-import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
@@ -20,7 +19,9 @@ import java.util.*
 @Configuration
 class PaymentAccountsConfig {
     companion object {
-        private val javaClient = HttpClient.newBuilder().build()
+        private val javaClient = HttpClient.newBuilder()
+            .connectTimeout(java.time.Duration.ofSeconds(10))
+            .version(HttpClient.Version.HTTP_1_1).build()
         private val mapper = ObjectMapper().registerKotlinModule().registerModules(JavaTimeModule())
     }
 
@@ -33,13 +34,17 @@ class PaymentAccountsConfig {
     @Value("\${payment.token}")
     lateinit var token: String
 
+    @Value("\${payment.processing-reserve-factor:2.1}")
+    var processingReserveFactor: Double = 2.1
+
     @Value("#{'\${payment.accounts}'.split(',')}")
     lateinit var allowedAccounts: List<String>
 
     @Bean
     fun accountAdapters(paymentService: EventSourcingService<UUID, PaymentAggregate, PaymentAggregateState>, meterRegistry: MeterRegistry): List<PaymentExternalSystemAdapter> {
         val request = HttpRequest.newBuilder()
-            .uri(URI("http://${paymentProviderHostPort}/external/accounts?serviceName=$serviceName&token=$token"))
+            .uri(paymentProviderUri(paymentProviderHostPort, "/external/accounts",
+                "serviceName" to serviceName, "token" to token))
             .GET()
             .build()
 
@@ -60,6 +65,8 @@ class PaymentAccountsConfig {
                     paymentProviderHostPort,
                     token,
                     meterRegistry,
+                    javaClient,
+                    processingReserveFactor,
                 )
             }
     }

@@ -2,10 +2,18 @@ package ru.quipy.payments.logic
 
 import java.time.Duration
 import java.util.*
+import java.util.concurrent.RejectedExecutionException
+
+class PaymentAdmissionRejectedException(message: String) : RejectedExecutionException(message)
+
+enum class PaymentSubmission { STARTED, NOT_STARTED }
 
 interface PaymentService {
+    fun checkCanSubmit(deadline: Long)
+
     /**
-     * Submit payment request to some external service.
+     * Returns after at least one account has started HTTP, without waiting for payment completion.
+     * Throws if no HTTP request was started; failures after the first launch must not request a retry.
      */
     fun submitPaymentRequest(paymentId: UUID, amount: Int, paymentStartedAt: Long, deadline: Long)
 }
@@ -17,7 +25,16 @@ interface PaymentService {
 
  */
 interface PaymentExternalSystemAdapter {
-    fun performPaymentAsync(paymentId: UUID, amount: Int, paymentStartedAt: Long, deadline: Long)
+    fun checkCanSubmit(deadline: Long)
+
+    /**
+     * Waits for concurrency/RPS permits within the deadline budget, then starts HTTP.
+     * STARTED means HTTP was launched, not that the payment succeeded.
+     * NOT_STARTED means a local transport failure prevented launch. Deadline rejection throws
+     * PaymentAdmissionRejectedException; preparation/persistence may also throw before launch.
+     * Completion is recorded through payment events.
+     */
+    fun startPayment(paymentId: UUID, amount: Int, paymentStartedAt: Long, deadline: Long): PaymentSubmission
 
     fun name(): String
 

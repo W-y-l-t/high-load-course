@@ -1,16 +1,8 @@
 package ru.quipy.payments.logic
 
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
-import ru.quipy.common.utils.NamedThreadFactory
-import ru.quipy.core.EventSourcingService
-import ru.quipy.payments.api.PaymentAggregate
-import java.time.Duration
 import java.util.*
-import java.util.concurrent.Executors
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
 
 
 @Service
@@ -22,8 +14,23 @@ class PaymentSystemImpl(
     }
 
     override fun submitPaymentRequest(paymentId: UUID, amount: Int, paymentStartedAt: Long, deadline: Long) {
+        var started = false
         for (account in paymentAccounts) {
-            account.performPaymentAsync(paymentId, amount, paymentStartedAt, deadline)
+            try {
+                if (account.startPayment(paymentId, amount, paymentStartedAt, deadline) == PaymentSubmission.STARTED) {
+                    started = true
+                }
+            } catch (e: Exception) {
+                // Once HTTP has started, a retry could duplicate the payment.
+                if (!started) throw e
+                logger.warn("Skipping remaining accounts after an earlier HTTP submission", e)
+                return
+            }
         }
+        check(started) { "No payment HTTP request was started" }
+    }
+
+    override fun checkCanSubmit(deadline: Long) {
+        paymentAccounts.forEach { it.checkCanSubmit(deadline) }
     }
 }

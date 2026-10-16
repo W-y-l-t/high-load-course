@@ -13,6 +13,8 @@ import ru.quipy.orders.repository.OrderRepository
 import ru.quipy.payments.logic.OrderPayer
 import java.util.*
 import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
 
 @RestController
 class APIController(
@@ -68,7 +70,7 @@ class APIController(
     }
 
     @PostMapping("/orders/{orderId}/payment")
-    fun payOrder(@PathVariable orderId: UUID, @RequestParam deadline: Long): ResponseEntity<PaymentSubmissionDto> {
+    fun payOrder(@PathVariable orderId: UUID, @RequestParam deadline: Long): CompletableFuture<ResponseEntity<PaymentSubmissionDto>> {
         requestMetrics.incoming.increment()
         val paymentId = UUID.randomUUID()
         val order = orderRepository.findById(orderId)?.let {
@@ -77,15 +79,24 @@ class APIController(
         } ?: throw IllegalArgumentException("No such order $orderId")
 
         return try {
-            val createdAt = orderPayer.processPayment(orderId, order.price, paymentId, deadline)
-            ResponseEntity.ok(PaymentSubmissionDto(createdAt, paymentId))
+            orderPayer.processPayment(orderId, order.price, paymentId, deadline).handle { createdAt, error ->
+                when {
+                    error == null -> ResponseEntity.ok(PaymentSubmissionDto(createdAt, paymentId))
+                    error is RejectedExecutionException -> rejectionResponse(error)
+                    else -> throw CompletionException(error)
+                }
+            }
         } catch (e: RejectedExecutionException) {
-            rejectedPayments.increment()
-            logger.warn("Payment queue is full; returning HTTP 429")
-            ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .header(HttpHeaders.RETRY_AFTER, (System.currentTimeMillis() + RETRY_AFTER_MILLIS).toString())
-                .build()
+            CompletableFuture.completedFuture(rejectionResponse(e))
         }
+    }
+
+    private fun rejectionResponse(error: RejectedExecutionException): ResponseEntity<PaymentSubmissionDto> {
+        rejectedPayments.increment()
+        logger.warn("Payment admission rejected; returning HTTP 429: {}", error.message)
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+            .header(HttpHeaders.RETRY_AFTER, (System.currentTimeMillis() + RETRY_AFTER_MILLIS).toString())
+            .build()
     }
 
     class PaymentSubmissionDto(
