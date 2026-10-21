@@ -4168,6 +4168,324 @@
       ],
       "title": "Online shop requests",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
+      "id": 109,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "exemplar": true,
+          "expr": "max_over_time(executor_queued_tasks{job=~\"online-store-job|online-shop-job\",service=~\"$service\",name=\"payment-submission-executor\"}[$__interval])",
+          "interval": "1s",
+          "legendFormat": "{{instance}} sampled queue peak per interval",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "expr": "executor_queued_tasks{job=~\"online-store-job|online-shop-job\",service=~\"$service\",name=\"payment-submission-executor\"} + executor_queue_remaining_tasks{job=~\"online-store-job|online-shop-job\",service=~\"$service\",name=\"payment-submission-executor\"}",
+          "legendFormat": "{{instance}} queue capacity",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "description": "Peak sampled queue size per chart interval. Capacity is inferred from queued and remaining slots.",
+      "title": "Payment queue size",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
+      "id": 110,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "exemplar": true,
+          "expr": "rate(executor_completed_tasks_total{job=~\"online-store-job|online-shop-job\",service=~\"$service\",name=\"payment-submission-executor\"}[$__rate_interval])",
+          "interval": "",
+          "legendFormat": "{{instance}} completed tasks/s",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "expr": "rate(requests_total{job=~\"online-store-job|online-shop-job\",event=\"Incoming\"}[$__rate_interval]) and on (job, instance) executor_pool_max_threads{job=~\"online-store-job|online-shop-job\",service=~\"$service\",name=\"payment-submission-executor\"}",
+          "legendFormat": "{{instance}} incoming attempts/s (incl. retries)",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "expr": "rate(payments_admission_rejected_total{job=~\"online-store-job|online-shop-job\"}[$__rate_interval]) and on (job, instance) executor_pool_max_threads{job=~\"online-store-job|online-shop-job\",service=~\"$service\",name=\"payment-submission-executor\"}",
+          "legendFormat": "{{instance}} rejected attempts/s (429)",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "description": "Incoming and rejected attempts include retries. Completed tasks may include failed payments.",
+      "title": "Payment submit and processing rates",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 48
+      },
+      "id": 111,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "exemplar": true,
+          "expr": "executor_active_threads{job=~\"online-store-job|online-shop-job\",service=~\"$service\",name=\"payment-submission-executor\"}",
+          "interval": "",
+          "legendFormat": "{{instance}} active threads",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "expr": "executor_pool_max_threads{job=~\"online-store-job|online-shop-job\",service=~\"$service\",name=\"payment-submission-executor\"}",
+          "legendFormat": "{{instance}} thread limit",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "description": "Busy workers include time waiting for the provider and rate limiter.",
+      "title": "Active payment threads",
+      "type": "timeseries"
     }
   ],
   "preload": false,
