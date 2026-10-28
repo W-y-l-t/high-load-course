@@ -35,7 +35,7 @@ class OrderPayer(
     @Autowired
     private lateinit var paymentService: PaymentService
 
-    private val requestRateLimiter = LeakingBucketRateLimiter(11, Duration.ofMillis(1000), 253)
+    private val requestRateLimiter = LeakingBucketRateLimiter(11, Duration.ofMillis(1000), 264)
         // TokenBucketRateLimiter(11, 19, 1, TimeUnit.SECONDS) // LeakingBucketRateLimiter(11, Duration.ofMillis(1000), 11)
 // SlidingWindowRateLimiter(11, Duration.ofMillis(1000))
     private val paymentExecutor = ThreadPoolExecutor(
