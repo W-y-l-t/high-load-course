@@ -20,6 +20,8 @@ datasources:
     orgId: 1
     # <string> url
     url: http://prometheus:9090
+    jsonData:
+      timeInterval: 10s
     # <string> database password, if used
     password:
     # <string> database user, if used

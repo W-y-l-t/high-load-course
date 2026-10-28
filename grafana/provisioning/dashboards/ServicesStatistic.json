@@ -3457,7 +3457,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "Local HTTP calls in progress and account parallelRequests limit. Excludes queue, rate limiter wait and database work. Short spikes may occur between scrapes; see the exceeded counter.",
+      "description": "Local HTTP slots in use, including connection acquisition and response consumption, compared with account parallelRequests. Application queue, rate limiter wait and database preparation are excluded. Short spikes may occur between scrapes; see the exceeded counter.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -3615,7 +3615,7 @@
               },
               {
                 "color": "red",
-                "value": 0.000001
+                "value": 1e-06
               }
             ]
           },
@@ -3911,7 +3911,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "Rejected admission attempts across application instances. This metric has no service or accountName labels, so service and account filters do not apply. Includes client retries.",
+      "description": "All HTTP 429 admission responses, including full buffers and insufficient deadline budget. This metric has no service or accountName labels, so service and account filters do not apply. Includes client retries; these are attempts, not failed test scenarios.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -4008,7 +4008,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "Rejected admission attempts across application instances. This metric has no service or accountName labels, so service and account filters do not apply. Includes client retries.",
+      "description": "All HTTP 429 admission responses, including full buffers and insufficient deadline budget. This metric has no service or accountName labels, so service and account filters do not apply. Includes client retries; these are attempts, not failed test scenarios.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -4025,7 +4025,7 @@
               },
               {
                 "color": "red",
-                "value": 0.000001
+                "value": 1e-06
               }
             ]
           },
@@ -4167,6 +4167,691 @@
         }
       ],
       "title": "Online shop requests",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "HTTP starts counted when request headers are written. Started (last scrape) uses the last two available scrapes, normally about 10 seconds apart; Started (average) uses the adaptive rate window. A short 6000-payment run can be diluted by idle time inside a long averaging window. Neither line proves compliance with every one-second provider window. The configured 10 ms guard and scheduler can keep throughput below the SLA limit.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "id": 109,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service, accountName) (rate(payments_provider_started_total{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "Started (average) - {{accountName}}",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "max by (service, accountName) (payments_provider_rate_limit{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"})",
+          "instant": false,
+          "legendFormat": "Limit - {{accountName}}",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service, accountName) (irate(payments_provider_started_total{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"}[$__rate_interval]))",
+          "instant": false,
+          "interval": "10s",
+          "legendFormat": "Started (last scrape) - {{accountName}}",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Provider starts vs RPS limit",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "All requests waiting for admission: database preparation plus account dispatch waiting. Async HTTP calls already started do not occupy this buffer. Capacity is the configured memory bound. This shared buffer has no account label, so only the service filter applies.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
+      "id": 110,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service) (payments_queue_size{job=~\"online-store-job|online-shop-job\",service=~\"$service\"})",
+          "instant": false,
+          "legendFormat": "Waiting",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service) (payments_queue_capacity{job=~\"online-store-job|online-shop-job\",service=~\"$service\"})",
+          "instant": false,
+          "legendFormat": "Capacity",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Payments awaiting HTTP admission",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Average waits before database preparation and before HTTP dispatch, plus HTTP connection acquisition/header write time. Dispatch wait includes connection/write time; do not sum these overlapping lines. Provider processing and response time are excluded. Preparation wait is shared; other lines follow account selection.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
+      "id": 111,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service) (rate(payments_queue_wait_seconds_sum{job=~\"online-store-job|online-shop-job\",service=~\"$service\"}[$__rate_interval])) / sum by (service) (rate(payments_queue_wait_seconds_count{job=~\"online-store-job|online-shop-job\",service=~\"$service\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "Before preparation",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service, accountName) (rate(payments_dispatch_wait_seconds_sum{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"}[$__rate_interval])) / sum by (service, accountName) (rate(payments_dispatch_wait_seconds_count{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "Before HTTP - {{accountName}}",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service,accountName) (rate(payments_http_commit_wait_seconds_sum{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"}[$__rate_interval])) / sum by (service,accountName) (rate(payments_http_commit_wait_seconds_count{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "HTTP connection/write - {{accountName}}",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Payment preparation and dispatch wait",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Average remaining client budget at ingress and immediately before HTTP submission, compared with the processing reserve. Admission requires an individual request to retain more than the reserve. The average lines can hide individual short budgets. Reserve starts at account averageProcessingTime times the configured factor and can grow from timely observations; it is an estimate, not a maximum latency guarantee.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "id": 112,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service) (rate(payments_admission_remaining_seconds_sum{job=~\"online-store-job|online-shop-job\",service=~\"$service\"}[$__rate_interval])) / sum by (service) (rate(payments_admission_remaining_seconds_count{job=~\"online-store-job|online-shop-job\",service=~\"$service\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "At entry",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service, accountName) (rate(payments_provider_remaining_seconds_sum{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"}[$__rate_interval])) / sum by (service, accountName) (rate(payments_provider_remaining_seconds_count{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "Before HTTP - {{accountName}}",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "max by (service, accountName) (payments_admission_processing_reserve{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"})",
+          "instant": false,
+          "legendFormat": "Reserve - {{accountName}}",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Deadline budget vs processing reserve",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Admission expiries happen before HTTP submission and produce 429 if no account started a payment. Dispatch rejections are per account; the same admission expiry may be visible at both stages, so do not sum these lines. Late responses count provider successes received locally after the original client deadline. Shared admission expiries only follow the service filter.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
+      "id": 113,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service) (rate(payments_admission_deadline_rejected_total{job=~\"online-store-job|online-shop-job\",service=~\"$service\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "Admission expiry",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service, accountName) (rate(payments_dispatch_deadline_rejected_total{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "Dispatch expiry - {{accountName}}",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service, accountName) (rate(payments_provider_response_late_total{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "Late response - {{accountName}}",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Deadline rejections and late provider responses",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Completed HTTP results waiting for a database writer. Running writes are excluded. A sustained increase indicates that result persistence is falling behind provider responses. The queue is bounded by per-account lifecycle reservations.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 56
+      },
+      "id": 114,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service, accountName) (payments_results_pending{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"})",
+          "instant": false,
+          "legendFormat": "{{accountName}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Payment results awaiting persistence",
       "type": "timeseries"
     }
   ],

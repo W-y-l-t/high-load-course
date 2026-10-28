@@ -2,8 +2,10 @@ package ru.quipy.config
 
 import jakarta.annotation.PostConstruct
 import org.eclipse.jetty.http2.server.HTTP2CServerConnectionFactory
+import org.eclipse.jetty.server.ServerConnector
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.web.embedded.jetty.JettyServerCustomizer
 import org.springframework.boot.web.embedded.jetty.JettyServletWebServerFactory
 import org.springframework.context.annotation.Bean
@@ -38,6 +40,9 @@ import java.util.*
 @Configuration
 class EventSourcingLibConfiguration {
 
+    @Value("\${server.jetty.accept-queue-size:1024}")
+    private var acceptQueueSize: Int = 1024
+
     private val logger = LoggerFactory.getLogger(EventSourcingLibConfiguration::class.java)
 
     @Autowired
@@ -70,8 +75,12 @@ class EventSourcingLibConfiguration {
     fun jettyServerCustomizer(): JettyServletWebServerFactory {
         val jettyServletWebServerFactory = JettyServletWebServerFactory()
 
-        val c = JettyServerCustomizer {
-            (it.connectors[0].getConnectionFactory("h2c") as HTTP2CServerConnectionFactory).maxConcurrentStreams = 10_000_000
+        val c = JettyServerCustomizer { server ->
+            server.connectors.forEach { connector ->
+                if (connector is ServerConnector) connector.acceptQueueSize = acceptQueueSize
+                (connector.getConnectionFactory("h2c") as? HTTP2CServerConnectionFactory)
+                    ?.maxConcurrentStreams = 10_000_000
+            }
         }
 
         jettyServletWebServerFactory.serverCustomizers.add(c)
