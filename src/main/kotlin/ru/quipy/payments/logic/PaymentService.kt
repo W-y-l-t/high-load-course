@@ -2,19 +2,12 @@ package ru.quipy.payments.logic
 
 import java.time.Duration
 import java.util.*
-import java.util.concurrent.CompletableFuture
 
 interface PaymentService {
-    fun retryDelayMillis(): Long
-
     /**
      * Submit payment request to some external service.
      */
-    fun admissionWaitNanos(deadline: PaymentDeadline, pendingPayments: Int = 0): Long
-
-    fun admissionTimeoutNanos(deadline: PaymentDeadline): Long
-
-    fun submitPaymentRequest(paymentId: UUID, amount: Int, paymentStartedAt: Long, deadline: PaymentDeadline): CompletableFuture<Unit>
+    fun submitPaymentRequest(paymentId: UUID, amount: Int, paymentStartedAt: Long, deadline: Long)
 }
 
 /**
@@ -23,14 +16,8 @@ interface PaymentService {
  * !!! You can extend the interface with additional methods if needed. !!!
 
  */
-interface PaymentExternalSystemAdapter : AutoCloseable {
-    fun retryDelayMillis(): Long
-
-    fun admissionWaitNanos(deadline: PaymentDeadline, pendingPayments: Int = 0): Long
-
-    fun admissionTimeoutNanos(deadline: PaymentDeadline): Long
-
-    fun performPaymentAsync(paymentId: UUID, amount: Int, paymentStartedAt: Long, deadline: PaymentDeadline): CompletableFuture<Unit>
+interface PaymentExternalSystemAdapter {
+    fun performPaymentAsync(paymentId: UUID, amount: Int, paymentStartedAt: Long, deadline: Long)
 
     fun name(): String
 

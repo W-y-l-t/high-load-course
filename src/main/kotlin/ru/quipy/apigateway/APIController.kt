@@ -8,20 +8,20 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
-import org.springframework.web.server.ResponseStatusException
 import ru.quipy.common.utils.RequestMetrics
 import ru.quipy.orders.repository.OrderRepository
 import ru.quipy.payments.logic.OrderPayer
-import ru.quipy.payments.logic.PaymentAdmissionRejectedException
 import java.util.*
 import java.util.concurrent.RejectedExecutionException
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CompletionException
 
 @RestController
 class APIController(
         private val meterRegistry: MeterRegistry,
         private val requestMetrics: RequestMetrics) {
+
+    companion object {
+        private const val RETRY_AFTER_MILLIS = 1_000L
+    }
 
     val logger: Logger = LoggerFactory.getLogger(APIController::class.java)
 
@@ -43,7 +43,6 @@ class APIController(
 
     @PostMapping("/orders")
     fun createOrder(@RequestParam userId: UUID, @RequestParam price: Int): Order {
-        if (price <= 0) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Price must be positive")
         val order = Order(
             UUID.randomUUID(),
             userId,
@@ -69,38 +68,24 @@ class APIController(
     }
 
     @PostMapping("/orders/{orderId}/payment")
-    fun payOrder(@PathVariable orderId: UUID, @RequestParam deadline: Long): CompletableFuture<ResponseEntity<PaymentSubmissionDto>> {
+    fun payOrder(@PathVariable orderId: UUID, @RequestParam deadline: Long): ResponseEntity<PaymentSubmissionDto> {
         requestMetrics.incoming.increment()
         val paymentId = UUID.randomUUID()
-        val order = orderRepository.findById(orderId)
-            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "No such order $orderId")
-        if (deadline <= 0) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Deadline must be an epoch timestamp")
+        val order = orderRepository.findById(orderId)?.let {
+            orderRepository.save(it.copy(status = OrderStatus.PAYMENT_IN_PROGRESS))
+            it
+        } ?: throw IllegalArgumentException("No such order $orderId")
 
         return try {
-            orderPayer.processPayment(orderId, order.price, paymentId, deadline).handle { createdAt, error ->
-                if (error == null) {
-                    orderRepository.save(order.copy(status = OrderStatus.PAYMENT_IN_PROGRESS))
-                    ResponseEntity.ok(PaymentSubmissionDto(createdAt, paymentId))
-                } else {
-                    var cause = error
-                    while (cause is CompletionException && cause.cause != null) cause = cause.cause!!
-                    if (cause is RejectedExecutionException) rejectionResponse(cause)
-                    else throw CompletionException(cause)
-                }
-            }
+            val createdAt = orderPayer.processPayment(orderId, order.price, paymentId, deadline)
+            ResponseEntity.ok(PaymentSubmissionDto(createdAt, paymentId))
         } catch (e: RejectedExecutionException) {
-            CompletableFuture.completedFuture(rejectionResponse(e))
+            rejectedPayments.increment()
+            logger.warn("Payment queue is full; returning HTTP 429")
+            ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, (System.currentTimeMillis() + RETRY_AFTER_MILLIS).toString())
+                .build()
         }
-    }
-
-    private fun rejectionResponse(error: RejectedExecutionException): ResponseEntity<PaymentSubmissionDto> {
-        rejectedPayments.increment()
-        logger.debug("Payment admission rejected; returning HTTP 429: {}", error.message)
-        val retryDelay = (error as? PaymentAdmissionRejectedException)?.retryAfterMillis ?: 1_000L
-        // Bombardier's contract expects an epoch timestamp in milliseconds.
-        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-            .header(HttpHeaders.RETRY_AFTER, (System.currentTimeMillis() + maxOf(1, retryDelay)).toString())
-            .build()
     }
 
     class PaymentSubmissionDto(

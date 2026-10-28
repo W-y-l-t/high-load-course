@@ -10,7 +10,7 @@ scrape_configs:
   - job_name: 'online-store-job'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['online-shop:8081']
+      - targets: ['host.docker.internal:8081']
   - job_name: 'online-shop-job'
     metrics_path: '/actuator/prometheus'
     static_configs:
