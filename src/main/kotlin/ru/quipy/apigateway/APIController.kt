@@ -20,7 +20,7 @@ class APIController(
         private val requestMetrics: RequestMetrics) {
 
     companion object {
-        private const val RETRY_AFTER_MILLIS = 1_000L
+        private const val RETRY_AFTER_MILLIS = 5_00L
     }
 
     val logger: Logger = LoggerFactory.getLogger(APIController::class.java)

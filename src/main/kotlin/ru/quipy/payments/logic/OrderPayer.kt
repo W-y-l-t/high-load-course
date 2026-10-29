@@ -5,10 +5,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
-import ru.quipy.common.utils.LeakingBucketRateLimiter
-import ru.quipy.common.utils.NamedThreadFactory
-import ru.quipy.common.utils.SlidingWindowRateLimiter
-import ru.quipy.common.utils.TokenBucketRateLimiter
+import ru.quipy.common.utils.*
 import ru.quipy.core.EventSourcingService
 import ru.quipy.payments.api.PaymentAggregate
 import java.time.Duration
@@ -23,6 +20,8 @@ class OrderPayer(
     executorMetrics: PaymentExecutorMetrics,
     @Value("\${payment.executor.threads}") threads: Int,
     @Value("\${payment.executor.queue-capacity}") queueCapacity: Int,
+    @Value("\${payment.average-processing-time-ms:1000}") private val averageProcessingTimeMs: Long,
+    @Value("\${payment.rate-limit-per-sec:110}") private val rateLimitPerSec: Int,
 ) {
 
     companion object {
@@ -35,7 +34,10 @@ class OrderPayer(
     @Autowired
     private lateinit var paymentService: PaymentService
 
-    private val requestRateLimiter = LeakingBucketRateLimiter(11, Duration.ofMillis(1000), 231)
+    private val requestRateLimiter = LeakingBucketRateLimiter(11, Duration.ofMillis(1000), 11) // LeakingBucketRateLimiter(11, Duration.ofMillis(1000), 12) // SlidingWindowRateLimiter(12, Duration.ofMillis(1000)) // TokenBucketRateLimiter(11, 11, 1, TimeUnit.SECONDS)
+//    private val requestRateLimiter = CompositeRateLimiter(
+//        SlidingWindowRateLimiter(15, Duration.ofMillis(1000)),
+//        LeakingBucketRateLimiter(11, Duration.ofMillis(1000), 11)) // TokenBucketRateLimiter(11, 12, 1, TimeUnit.SECONDS) // FixedWindowRateLimiter(11, 1, TimeUnit.SECONDS) // LeakingBucketRateLimiter(11, Duration.ofMillis(1000), 11)
         // TokenBucketRateLimiter(11, 19, 1, TimeUnit.SECONDS) // LeakingBucketRateLimiter(11, Duration.ofMillis(1000), 11)
 // SlidingWindowRateLimiter(11, Duration.ofMillis(1000))
     private val paymentExecutor = ThreadPoolExecutor(
