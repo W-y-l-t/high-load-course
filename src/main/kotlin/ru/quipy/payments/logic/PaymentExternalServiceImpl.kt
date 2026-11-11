@@ -46,14 +46,14 @@ class PaymentExternalSystemAdapterImpl(
     private val requestMetrics = RequestMetrics(meterRegistry)
     private val requestRateLimiter = SlidingWindowRateLimiter(
         rateLimitPerSec.toLong(),
-        if (accountName == "acc-8") Duration.ofMillis(1050) else Duration.ofSeconds(1),
-        prioritizeDeadline = accountName == "acc-8",
+        Duration.ofMillis(1050),
+        prioritizeDeadline = true,
     )
     private val client = OkHttpClient.Builder().retryOnConnectionFailure(false).build()
 
     override fun performPaymentAsync(paymentId: UUID, amount: Int, paymentStartedAt: Long, deadline: Long) {
         val temporaryFailure = performAttempt(paymentId, amount, paymentStartedAt, deadline)
-        if (!temporaryFailure || accountName != "acc-8") return
+        if (!temporaryFailure) return
 
         for (delayMillis in retryDelaysMillis) {
             if (delayMillis >= deadline - now()) return
