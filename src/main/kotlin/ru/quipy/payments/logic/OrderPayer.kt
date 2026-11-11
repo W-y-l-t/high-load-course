@@ -8,10 +8,8 @@ import org.springframework.stereotype.Service
 import ru.quipy.common.utils.*
 import ru.quipy.core.EventSourcingService
 import ru.quipy.payments.api.PaymentAggregate
-import java.time.Duration
 import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
@@ -34,7 +32,7 @@ class OrderPayer(
     @Autowired
     private lateinit var paymentService: PaymentService
 
-    private val requestRateLimiter = LeakingBucketRateLimiter(11, Duration.ofMillis(1000), 11) // LeakingBucketRateLimiter(11, Duration.ofMillis(1000), 12) // SlidingWindowRateLimiter(12, Duration.ofMillis(1000)) // TokenBucketRateLimiter(11, 11, 1, TimeUnit.SECONDS)
+    // LeakingBucketRateLimiter(11, Duration.ofMillis(1000), 12) // SlidingWindowRateLimiter(12, Duration.ofMillis(1000)) // TokenBucketRateLimiter(11, 11, 1, TimeUnit.SECONDS)
 //    private val requestRateLimiter = CompositeRateLimiter(
 //        SlidingWindowRateLimiter(15, Duration.ofMillis(1000)),
 //        LeakingBucketRateLimiter(11, Duration.ofMillis(1000), 11)) // TokenBucketRateLimiter(11, 12, 1, TimeUnit.SECONDS) // FixedWindowRateLimiter(11, 1, TimeUnit.SECONDS) // LeakingBucketRateLimiter(11, Duration.ofMillis(1000), 11)
@@ -56,10 +54,6 @@ class OrderPayer(
 
     fun processPayment(orderId: UUID, amount: Int, paymentId: UUID, deadline: Long): Long {
         val createdAt = System.currentTimeMillis()
-        if (!requestRateLimiter.tick()) {
-            logger.info("!!! incoming rate limiter")
-            throw RejectedExecutionException()
-        }
 
         paymentExecutor.submit {
             val createdEvent = paymentESService.create {
