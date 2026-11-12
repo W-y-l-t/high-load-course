@@ -34,8 +34,8 @@ class OrderPayer(
     private lateinit var paymentService: PaymentService
 
     private val requestRateLimiter = TokenBucketRateLimiter(
-        rate = 11,
-        bucketMaxCapacity = 11,
+        rate = 10,
+        bucketMaxCapacity = 10,
         window = 1,
         timeUnit = TimeUnit.SECONDS,
     )
