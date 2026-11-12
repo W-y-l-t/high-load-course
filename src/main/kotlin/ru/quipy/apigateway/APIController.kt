@@ -19,10 +19,6 @@ class APIController(
         private val meterRegistry: MeterRegistry,
         private val requestMetrics: RequestMetrics) {
 
-    companion object {
-        private const val RETRY_AFTER_MILLIS = 5_00L
-    }
-
     val logger: Logger = LoggerFactory.getLogger(APIController::class.java)
 
     private val rejectedPayments = meterRegistry.counter("payments.admission.rejected")
@@ -68,24 +64,24 @@ class APIController(
     }
 
     @PostMapping("/orders/{orderId}/payment")
-    fun payOrder(@PathVariable orderId: UUID, @RequestParam deadline: Long): ResponseEntity<PaymentSubmissionDto> {
+    fun payOrder(@PathVariable orderId: UUID, @RequestParam deadline: Long): ResponseEntity<*> {
         requestMetrics.incoming.increment()
-        val paymentId = UUID.randomUUID()
-        val order = orderRepository.findById(orderId)?.let {
-            orderRepository.save(it.copy(status = OrderStatus.PAYMENT_IN_PROGRESS))
-            it
-        } ?: throw IllegalArgumentException("No such order $orderId")
 
-        return try {
-            val createdAt = orderPayer.processPayment(orderId, order.price, paymentId, deadline)
-            ResponseEntity.ok(PaymentSubmissionDto(createdAt, paymentId))
+        val paymentId = UUID.randomUUID()
+        val order = orderRepository.findById(orderId) ?: throw IllegalArgumentException("No such order $orderId")
+
+        val createdAt = try {
+            orderPayer.processPayment(orderId, order.price, paymentId, deadline)
         } catch (e: RejectedExecutionException) {
             rejectedPayments.increment()
-            logger.warn("Payment queue is full; returning HTTP 429")
-            ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .header(HttpHeaders.RETRY_AFTER, (System.currentTimeMillis() + RETRY_AFTER_MILLIS).toString())
-                .build()
+            logger.warn("Payment admission rejected; returning HTTP 429")
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, deadline.toString())
+                .build<Void>()
         }
+
+        orderRepository.save(order.copy(status = OrderStatus.PAYMENT_IN_PROGRESS))
+        return ResponseEntity.ok(PaymentSubmissionDto(createdAt, paymentId))
     }
 
     class PaymentSubmissionDto(
