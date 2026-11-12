@@ -76,7 +76,6 @@ class APIController(
             rejectedPayments.increment()
             logger.warn("Payment admission rejected; returning HTTP 429")
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                // Bombardier reads this value as an absolute timestamp in milliseconds.
                 .header(HttpHeaders.RETRY_AFTER, deadline.toString())
                 .build<Void>()
         }
