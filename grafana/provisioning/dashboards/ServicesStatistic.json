@@ -4486,6 +4486,258 @@
       "description": "Busy workers include time waiting for the provider and rate limiter.",
       "title": "Active payment threads",
       "type": "timeseries"
+    },
+    {
+      "id": 112,
+      "title": "Provider retries in selected range",
+      "description": "Counts started retry calls per account in the dashboard time range. A retry that expires in the queue is not counted. Prometheus estimates increases between scrapes.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 56
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service, accountName) (increase(payments_provider_retries_total{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"}[$__range]))",
+          "legendFormat": "{{accountName}}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 113,
+      "title": "Provider retries per second",
+      "description": "Shows when retry calls fill part of the available provider RPS.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 56
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service, accountName) (rate(payments_provider_retries_total{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"}[$__rate_interval]))",
+          "legendFormat": "{{accountName}}",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 114,
+      "title": "Successful provider HTTP duration",
+      "description": "Client-observed HTTP attempt duration in seconds, including response reading and decoding. Percentiles come from the app Summary for each series; the mean uses the selected rate window. The server timeout applies inside Bombardier, and the client timeout covers the complete HTTP call.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 64
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "payments_provider_request_duration_seconds{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\",outcome=\"success\",quantile=\"0.5\"}",
+          "legendFormat": "p50 — {{accountName}}",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "payments_provider_request_duration_seconds{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\",outcome=\"success\",quantile=\"0.9\"}",
+          "legendFormat": "p90 — {{accountName}}",
+          "instant": false,
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "payments_provider_request_duration_seconds{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\",outcome=\"success\",quantile=\"0.95\"}",
+          "legendFormat": "p95 — {{accountName}}",
+          "instant": false,
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "payments_provider_request_duration_seconds{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\",outcome=\"success\",quantile=\"0.99\"}",
+          "legendFormat": "p99 — {{accountName}}",
+          "instant": false,
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service, accountName) (rate(payments_provider_request_duration_seconds_sum{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\",outcome=\"success\"}[$__rate_interval])) / sum by (service, accountName) (rate(payments_provider_request_duration_seconds_count{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\",outcome=\"success\"}[$__rate_interval]))",
+          "legendFormat": "Mean — {{accountName}}",
+          "instant": false,
+          "range": true,
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "payments_provider_timeout_seconds{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"}",
+          "legendFormat": "{{source}} timeout — {{accountName}}",
+          "instant": false,
+          "range": true,
+          "refId": "F"
+        }
+      ]
+    },
+    {
+      "id": 115,
+      "title": "Maximum provider HTTP duration",
+      "description": "Maximum client-observed HTTP attempt duration in seconds, by account and outcome. Each point shows the maximum reported by the app timer over its recent observation window. The measurement includes reading and decoding the response. Queue and limiter waits are outside the measurement.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 64
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "max by (service, accountName, outcome) (payments_provider_request_duration_seconds_max{job=~\"online-store-job|online-shop-job\",service=~\"$service\",accountName=~\"${account:regex}\"}) > 0",
+          "legendFormat": "{{outcome}} — {{accountName}}",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ]
     }
   ],
   "preload": false,
