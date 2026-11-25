@@ -12,7 +12,7 @@ data class PaymentTimeoutPolicy(val serverMillis: Long, val callMillis: Long) {
     val providerTimeout: String = Duration.ofMillis(serverMillis).toString()
     val maxAttempts = 4
 
-    // Leave time to persist the result after completing the HTTP call.
+
     fun latestStart(deadline: Long): Long = deadline - callMillis - 200
 }
 
